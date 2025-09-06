@@ -7,6 +7,7 @@ from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
 from typing import Union, Optional, List, Tuple
+from termcolor import colored
 
 from stereo_calib.charuco import CharucoBoard
 from stereo_calib.utils import CameraCalibrationData, StereoCalibrationData
@@ -132,6 +133,14 @@ class StereoCalibration:
 
             corners_l, ids_l, rejected_img_points_l = aruco_detector.detectMarkers(gray_l)
             corners_r, ids_r, rejected_img_points_r = aruco_detector.detectMarkers(gray_r)
+            if ids_l is None:
+                print(colored(f"No aruco markers found in left image {img_left_path.split('/')[-1]}", "red"))
+            if ids_r is None:
+                print(colored(f"No aruco markers found in right image {img_right_path.split('/')[-1]}", "red"))
+            # if ids_l is not None and ids_r is not None:
+            #     print(colored(f"Aruco markers found in left image {img_left_path.split('/')[-1]}", "green"))
+            #     print(colored(f"Aruco markers found in right image {img_right_path.split('/')[-1]}", "green"))
+            # breakpoint()
 
             if ids_l is not None and ids_r is not None:
                 retval_l, charuco_corners_l, charuco_ids_l = cv2.aruco.interpolateCornersCharuco(corners_l, ids_l,
@@ -143,6 +152,7 @@ class StereoCalibration:
                 if charuco_corners_l is None or charuco_corners_r is None:
                     continue
 
+                # print(retval_l, retval_r)
                 if retval_l > self._min_points and retval_r > self._min_points:
                     obj_pts_l, img_pts_l = cv2.aruco.getBoardObjectAndImagePoints(self.charuco_board.board,
                                                                                   charuco_corners_l,
@@ -156,6 +166,8 @@ class StereoCalibration:
                     ids_l = {tuple(a): b for a, b in zip(obj_pts_l[:, 0], charuco_ids_l[:, 0])}
                     ids_r = {tuple(a): b for a, b in zip(obj_pts_r[:, 0], charuco_ids_r[:, 0])}
                     common_pts = set(pts_l.keys()) & set(pts_r.keys())
+                    if len(common_pts) <= self._min_points:
+                        continue
 
                     obj = np.zeros((len(common_pts), 1, 3), dtype=np.float32)
                     left_corners = np.zeros((len(common_pts), 1, 2), dtype=np.float32)
@@ -180,6 +192,11 @@ class StereoCalibration:
             self.stereo_charuco_ids_l) == len(self.stereo_charuco_ids_r)
 
         init_camera_matrix = self.init_camera_matrix()
+        # print(self.stereo_charuco_ids_l)
+        # print(self.stereo_charuco_ids_r)
+        print(len(self.stereo_charuco_ids_l))
+        print(len(self.stereo_charuco_ids_r))
+        # breakpoint()
 
         # left camera calibration
         self.left_camera_calib_results = self.calibrate_camera(charuco_points=self.stereo_charuco_points_l,
@@ -398,7 +415,14 @@ class StereoCalibration:
                                      fundamental_matrix=fundamental_matrix,
                                      projection_matrix_left=proj_matrix_l,
                                      projection_matrix_right=proj_matrix_r,
-                                     perspective_transformation_matrix_Q=Q)
+                                     perspective_transformation_matrix_Q=Q,
+                                     transform_r_to_l=None,
+                                     left_cam_to_base_transform=None,
+                                     right_cam_to_base_transform=None,
+                                     left_cam_serial_id=None,
+                                     right_cam_serial_id=None,
+                                     robot_joint_vals=None
+                                    )
 
     def log_calib_info(self):
         logger.info(f"Left Camera Calibration: RMS error = {self.left_camera_calib_results.rms_reprojection_error:.4f}")

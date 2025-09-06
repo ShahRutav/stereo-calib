@@ -225,6 +225,11 @@ def save_rectified_stereo_images_with_disparity_and_depth_maps(left_images_path:
     disparity_map_path.mkdir(exist_ok=True, parents=True)
     raw_depth_map_path.mkdir(exist_ok=True, parents=True)
     depth_map_img_path.mkdir(exist_ok=True, parents=True)
+    max_images = 20
+    random_indices = np.random.choice(len(left_images_path), size=max_images, replace=False)
+    sorted_indices = np.argsort(random_indices)
+    left_images_path = [left_images_path[i] for i in sorted_indices]
+    right_images_path = [right_images_path[i] for i in sorted_indices]
 
     count = 0
     for left_img_path, right_img_path in tqdm(zip(left_images_path, right_images_path),
